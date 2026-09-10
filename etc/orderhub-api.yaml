@@ -1,3 +1,7 @@
 Name: orderhub-api
 Host: 0.0.0.0
 Port: 8888
+
+Postgres:
+  DataSource: postgres://postgres:postgres@127.0.0.1:5432/orderdb?sslmode=disable
+

@@ -37,7 +37,20 @@ order-hub/
 
 ## Hướng dẫn chạy thử nghiệm
 
-### 1. Khởi động server
+### Cách 1: Chạy bằng Docker Compose (Khuyên dùng - 1 lệnh duy nhất)
+Không cần cài Go, không cần cài PostgreSQL. Docker sẽ tự động bật cả CSDL PostgreSQL (chạy sẵn `schema.sql`) và Go-Zero API:
+```bash
+# Khởi động toàn bộ hệ thống
+docker compose up -d
+
+# Xem log thời gian thực
+docker compose logs -f
+
+# Tắt hệ thống khi xong
+docker compose down
+```
+
+### Cách 2: Chạy thủ công với Go
 ```powershell
 go run orderhub.go -f etc/orderhub-api.yaml
 ```
