@@ -48,11 +48,11 @@ func (l *CreateOrderLogic) CreateOrder(req *types.CreateOrderReq) (resp *types.C
 	l.Logger.Infof("[DATABASE] Da luu don hang %s cho khach %s", orderId, req.CustomerName)
 
 	// 3. QUEUE SIMULATION: Ban event vao Background Queue de gui email bat dong bo
-	go func(oId string, cust string) {
+	go func(oId string, cust string, email string) {
 		// Worker ngam xu ly sau 1 giay, khong lam cham Client
 		time.Sleep(1 * time.Second)
-		logx.Infof("[QUEUE WORKER - ASYNC] Da gui email hoa don thanh cong cho don hang %s cua khach %s!", oId, cust)
-	}(orderId, req.CustomerName)
+		logx.Infof("[QUEUE WORKER - ASYNC] Da gui email hoa don toi: %s (Don hang: %s, Khach hang: %s)!", email, oId, cust)
+	}(orderId, req.CustomerName, req.Email)
 
 	// 4. Tra ket qua ngay lap tuc cho Client
 	return &types.CreateOrderResp{

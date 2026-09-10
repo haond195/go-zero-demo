@@ -43,12 +43,22 @@ go run orderhub.go -f etc/orderhub-api.yaml
 ```
 
 ### 2. Tạo đơn hàng (POST)
+Yêu cầu có Header `X-Role: admin` (do Middleware kiểm soát) và trường `email` hợp lệ:
 ```powershell
-Invoke-RestMethod -Uri "http://localhost:8888/api/v1/orders" -Method Post -ContentType "application/json" -Body '{"customer_name": "Nguyen Van A", "product_code": "MACBOOK-PRO", "quantity": 1, "amount": 2500.0}'
+$body = '{"customer_name": "Nguyen Van A", "email": "nguyenvana@gmail.com", "product_code": "MACBOOK-PRO", "quantity": 1, "amount": 2500.0}'
+Invoke-RestMethod -Uri "http://localhost:8888/api/v1/orders" -Method Post -Headers @{"X-Role"="admin"} -ContentType "application/json" -Body $body
 ```
 
-### 3. Xem đơn hàng (GET)
+### 3. Kiểm tra tính năng Gửi Email (Queue Worker)
+Sau khi gửi lệnh POST, hãy nhìn vào cửa sổ Terminal đang chạy server:
+- **Ngay lập tức:** Server phản hồi kết quả cho client (không bắt client chờ).
+- **Sau đúng 1 giây:** Background Queue Worker in ra dòng log gửi email thành công:
+  ```text
+  [QUEUE WORKER - ASYNC] Da gui email hoa don toi: nguyenvana@gmail.com (Don hang: ORD-xxx, Khach hang: Nguyen Van A)!
+  ```
+
+### 4. Xem đơn hàng (GET)
+Mở trình duyệt web hoặc chạy Terminal:
 ```powershell
-# Trên trình duyệt hoặc terminal:
 Invoke-RestMethod -Uri "http://localhost:8888/api/v1/orders/<MÃ_ĐƠN_HÀNG>" -Method Get
 ```
