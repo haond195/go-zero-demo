@@ -8,6 +8,7 @@ import (
 	"order-hub/internal/svc"
 	"order-hub/internal/types"
 	"order-hub/model"
+	paymentclient "order-hub/rpc/payment/client/payment"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -47,7 +48,25 @@ func (l *CreateOrderLogic) CreateOrder(req *types.CreateOrderReq) (resp *types.C
 
 	l.Logger.Infof("[DATABASE] Da luu don hang %s cho khach %s", orderId, req.CustomerName)
 
-	// 3. KAFKA REAL QUEUE: Ban event truc tiep vao Apache Kafka qua kq.Pusher
+	// 3. MICROSERVICE RPC: Goi sang Payment-RPC service qua gRPC
+	payMsg := "Chua bat RPC"
+	if l.svcCtx.PaymentRpc != nil {
+		payResp, err := l.svcCtx.PaymentRpc.ProcessPayment(l.ctx, &paymentclient.ProcessPaymentReq{
+			OrderId:      orderId,
+			Amount:       req.Amount,
+			CustomerName: req.CustomerName,
+		})
+		if err != nil {
+			l.Logger.Errorf("[ZRPC PAYMENT] Loi khi goi Payment RPC: %v", err)
+			payMsg = fmt.Sprintf("Loi thanh toan: %v", err)
+		} else {
+			l.Logger.Infof("[ZRPC PAYMENT] Da goi thanh cong Payment RPC qua gRPC -> TransId: %s, Msg: %s",
+				payResp.TransactionId, payResp.Message)
+			payMsg = fmt.Sprintf("Thanh toan gRPC thanh cong (%s)", payResp.TransactionId)
+		}
+	}
+
+	// 4. KAFKA REAL QUEUE: Ban event truc tiep vao Apache Kafka qua kq.Pusher
 	payload := fmt.Sprintf(`{"order_id":"%s","customer_name":"%s","email":"%s","product_code":"%s","amount":%.2f}`,
 		orderId, req.CustomerName, req.Email, req.ProductCode, req.Amount)
 
@@ -65,10 +84,10 @@ func (l *CreateOrderLogic) CreateOrder(req *types.CreateOrderReq) (resp *types.C
 		}(orderId, req.CustomerName, req.Email)
 	}
 
-	// 4. Tra ket qua ngay lap tuc cho Client
+	// 5. Tra ket qua ngay lap tuc cho Client
 	return &types.CreateOrderResp{
 		OrderId: orderId,
 		Status:  "PROCESSING",
-		Message: "Tao don hang thanh cong! Event da duoc ban vao Kafka Queue.",
+		Message: fmt.Sprintf("Tao don hang thanh cong! [%s] Event da duoc ban vao Kafka Queue.", payMsg),
 	}, nil
 }

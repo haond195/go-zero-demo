@@ -17,3 +17,7 @@ Kafka:
   Brokers:
     - 127.0.0.1:9092
   Topic: order-created-topic
+
+PaymentRpc:
+  Endpoints:
+    - 127.0.0.1:8088

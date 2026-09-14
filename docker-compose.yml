@@ -50,6 +50,15 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_NUM_PARTITIONS: 3
 
+  payment-rpc:
+    build:
+      context: .
+      dockerfile: Dockerfile.payment
+    container_name: orderhub-payment-rpc
+    restart: always
+    ports:
+      - "8088:8088"
+
   app:
     build: .
     container_name: orderhub-app
@@ -62,10 +71,13 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      payment-rpc:
+        condition: service_started
     environment:
       - DB_HOST=postgres
       - REDIS_HOST=redis:6379
       - KAFKA_BROKERS=kafka:29092
+      - PAYMENT_RPC=payment-rpc:8088
 
 volumes:
   pgdata:

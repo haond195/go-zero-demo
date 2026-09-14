@@ -1,0 +1,20 @@
+﻿syntax = "proto3";
+
+package payment;
+option go_package = "./payment";
+
+message ProcessPaymentReq {
+  string order_id = 1;
+  double amount = 2;
+  string customer_name = 3;
+}
+
+message ProcessPaymentResp {
+  string transaction_id = 1;
+  string status = 2;
+  string message = 3;
+}
+
+service Payment {
+  rpc ProcessPayment(ProcessPaymentReq) returns (ProcessPaymentResp);
+}

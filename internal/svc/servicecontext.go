@@ -8,14 +8,16 @@ import (
 	"order-hub/internal/config"
 	"order-hub/internal/middleware"
 	"order-hub/model"
+	paymentclient "order-hub/rpc/payment/client/payment"
 
 	"github.com/zeromicro/go-queue/kq"
+	"github.com/zeromicro/go-zero/core/limit"
 	"github.com/zeromicro/go-zero/core/logx"
+	"github.com/zeromicro/go-zero/core/stores/redis"
 	"github.com/zeromicro/go-zero/core/stores/sqlc"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
-	"github.com/zeromicro/go-zero/core/limit"
-	"github.com/zeromicro/go-zero/core/stores/redis"
 	"github.com/zeromicro/go-zero/rest"
+	"github.com/zeromicro/go-zero/zrpc"
 )
 
 type ServiceContext struct {
@@ -24,6 +26,7 @@ type ServiceContext struct {
 	RateLimit   rest.Middleware
 	OrderModel  *model.OrderModel
 	KafkaPusher *kq.Pusher
+	PaymentRpc  paymentclient.Payment
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -72,11 +75,24 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		logx.Infof("[RATE LIMIT] Khoi tao PeriodLimit: 3 requests / 10s (Redis: %s)", cacheConf[0].Host)
 	}
 
+	var paymentRpc paymentclient.Payment
+	paymentEndpoints := c.PaymentRpc.Endpoints
+	if rpcEnv := os.Getenv("PAYMENT_RPC"); rpcEnv != "" {
+		paymentEndpoints = strings.Split(rpcEnv, ",")
+	}
+	if len(paymentEndpoints) > 0 {
+		rpcConf := c.PaymentRpc
+		rpcConf.Endpoints = paymentEndpoints
+		paymentRpc = paymentclient.NewPayment(zrpc.MustNewClient(rpcConf))
+		logx.Infof("[ZRPC CLIENT] Khoi tao ket noi Payment RPC toi: %v", paymentEndpoints)
+	}
+
 	return &ServiceContext{
 		Config:      c,
 		AuditLog:    middleware.NewAuditLogMiddleware().Handle,
 		RateLimit:   rateLimitMiddleware,
 		OrderModel:  model.NewOrderModel(cachedConn, hasCache),
 		KafkaPusher: kafkaPusher,
+		PaymentRpc:  paymentRpc,
 	}
 }
