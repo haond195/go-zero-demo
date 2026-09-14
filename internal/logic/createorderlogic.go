@@ -30,7 +30,7 @@ func (l *CreateOrderLogic) CreateOrder(req *types.CreateOrderReq) (resp *types.C
 	// 1. Sinh ma don hang doc nhat
 	orderId := fmt.Sprintf("ORD-%d", time.Now().UnixNano()%1000000)
 
-	// 2. Luu thong tin don hang vao CSDL qua tang Model
+	// 2. Luu thong tin don hang vao CSDL qua tang Model (sqlc: PostgreSQL + Redis)
 	order := &model.Order{
 		OrderId:      orderId,
 		CustomerName: req.CustomerName,
@@ -47,17 +47,28 @@ func (l *CreateOrderLogic) CreateOrder(req *types.CreateOrderReq) (resp *types.C
 
 	l.Logger.Infof("[DATABASE] Da luu don hang %s cho khach %s", orderId, req.CustomerName)
 
-	// 3. QUEUE SIMULATION: Ban event vao Background Queue de gui email bat dong bo
-	go func(oId string, cust string, email string) {
-		// Worker ngam xu ly sau 1 giay, khong lam cham Client
-		time.Sleep(1 * time.Second)
-		logx.Infof("[QUEUE WORKER - ASYNC] Da gui email hoa don toi: %s (Don hang: %s, Khach hang: %s)!", email, oId, cust)
-	}(orderId, req.CustomerName, req.Email)
+	// 3. KAFKA REAL QUEUE: Ban event truc tiep vao Apache Kafka qua kq.Pusher
+	payload := fmt.Sprintf(`{"order_id":"%s","customer_name":"%s","email":"%s","product_code":"%s","amount":%.2f}`,
+		orderId, req.CustomerName, req.Email, req.ProductCode, req.Amount)
+
+	if l.svcCtx.KafkaPusher != nil {
+		if err := l.svcCtx.KafkaPusher.Push(l.ctx, payload); err != nil {
+			l.Logger.Errorf("[KAFKA PUSHER] Loi ban message vao Kafka: %v", err)
+		} else {
+			l.Logger.Infof("[KAFKA PUSHER] Da ban message vao Topic %s: %s", l.svcCtx.Config.Kafka.Topic, payload)
+		}
+	} else {
+		// Fallback mo phong neu chua bat Kafka
+		go func(oId string, cust string, email string) {
+			time.Sleep(1 * time.Second)
+			logx.Infof("[FALLBACK QUEUE] Da gui email hoa don toi: %s (Don hang: %s)!", email, oId)
+		}(orderId, req.CustomerName, req.Email)
+	}
 
 	// 4. Tra ket qua ngay lap tuc cho Client
 	return &types.CreateOrderResp{
 		OrderId: orderId,
 		Status:  "PROCESSING",
-		Message: "Tao don hang thanh cong! Email xac nhan dang duoc xu ly qua Queue.",
+		Message: "Tao don hang thanh cong! Event da duoc ban vao Kafka Queue.",
 	}, nil
 }

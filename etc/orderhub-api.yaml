@@ -7,3 +7,8 @@ Postgres:
 
 Cache:
   - Host: 127.0.0.1:6379
+
+Kafka:
+  Brokers:
+    - 127.0.0.1:9092
+  Topic: order-created-topic

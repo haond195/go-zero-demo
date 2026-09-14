@@ -8,6 +8,7 @@ import (
 	"order-hub/internal/middleware"
 	"order-hub/model"
 
+	"github.com/zeromicro/go-queue/kq"
 	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/core/stores/sqlc"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
@@ -15,9 +16,10 @@ import (
 )
 
 type ServiceContext struct {
-	Config     config.Config
-	AuditLog   rest.Middleware
-	OrderModel *model.OrderModel
+	Config      config.Config
+	AuditLog    rest.Middleware
+	OrderModel  *model.OrderModel
+	KafkaPusher *kq.Pusher
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -41,9 +43,22 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		logx.Infof("[SQLC] Khoi tao ket noi Postgres + Redis Cache: %s (Redis: %s)", dataSource, cacheConf[0].Host)
 	}
 
+	// Khoi tao Kafka Pusher
+	kafkaBrokers := c.Kafka.Brokers
+	if kfEnv := os.Getenv("KAFKA_BROKERS"); kfEnv != "" {
+		kafkaBrokers = strings.Split(kfEnv, ",")
+	}
+
+	var kafkaPusher *kq.Pusher
+	if len(kafkaBrokers) > 0 && c.Kafka.Topic != "" {
+		kafkaPusher = kq.NewPusher(kafkaBrokers, c.Kafka.Topic)
+		logx.Infof("[KAFKA PUSHER] Khoi tao ket noi Kafka Broker: %v (Topic: %s)", kafkaBrokers, c.Kafka.Topic)
+	}
+
 	return &ServiceContext{
-		Config:     c,
-		AuditLog:   middleware.NewAuditLogMiddleware().Handle,
-		OrderModel: model.NewOrderModel(cachedConn, hasCache),
+		Config:      c,
+		AuditLog:    middleware.NewAuditLogMiddleware().Handle,
+		OrderModel:  model.NewOrderModel(cachedConn, hasCache),
+		KafkaPusher: kafkaPusher,
 	}
 }

@@ -11,4 +11,8 @@ type Config struct {
 		DataSource string
 	}
 	Cache cache.CacheConf
+	Kafka struct {
+		Brokers []string
+		Topic   string
+	}
 }
