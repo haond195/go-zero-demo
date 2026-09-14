@@ -32,6 +32,7 @@ func main() {
 		Topic:      "order-created-topic",
 		Offset:     "first",
 		Consumers:  1,
+		Processors: 1,
 	}
 
 	q := kq.MustNewQueue(qConf, kq.WithHandle(consumeHandle))
