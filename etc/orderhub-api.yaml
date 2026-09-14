@@ -2,6 +2,11 @@ Name: orderhub-api
 Host: 0.0.0.0
 Port: 8888
 
+Prometheus:
+  Host: 0.0.0.0
+  Port: 9091
+  Path: /metrics
+
 Postgres:
   DataSource: postgres://postgres:postgres@127.0.0.1:5432/orderdb?sslmode=disable
 

@@ -14,7 +14,7 @@ import (
 func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.AuditLog},
+			[]rest.Middleware{serverCtx.AuditLog, serverCtx.RateLimit},
 			[]rest.Route{
 				{
 					Method:  http.MethodPost,

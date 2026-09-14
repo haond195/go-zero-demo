@@ -1,6 +1,7 @@
 package svc
 
 import (
+	"net/http"
 	"os"
 	"strings"
 
@@ -12,12 +13,15 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/core/stores/sqlc"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
+	"github.com/zeromicro/go-zero/core/limit"
+	"github.com/zeromicro/go-zero/core/stores/redis"
 	"github.com/zeromicro/go-zero/rest"
 )
 
 type ServiceContext struct {
 	Config      config.Config
 	AuditLog    rest.Middleware
+	RateLimit   rest.Middleware
 	OrderModel  *model.OrderModel
 	KafkaPusher *kq.Pusher
 }
@@ -55,9 +59,23 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		logx.Infof("[KAFKA PUSHER] Khoi tao ket noi Kafka Broker: %v (Topic: %s)", kafkaBrokers, c.Kafka.Topic)
 	}
 
+	var rateLimitMiddleware rest.Middleware = func(next http.HandlerFunc) http.HandlerFunc {
+		return next
+	}
+	if len(cacheConf) > 0 {
+		redisClient := redis.MustNewRedis(redis.RedisConf{
+			Host: cacheConf[0].Host,
+			Type: "node",
+		})
+		limiter := limit.NewPeriodLimit(10, 3, redisClient, "rate_limit:orders:")
+		rateLimitMiddleware = middleware.NewRateLimitMiddleware(limiter).Handle
+		logx.Infof("[RATE LIMIT] Khoi tao PeriodLimit: 3 requests / 10s (Redis: %s)", cacheConf[0].Host)
+	}
+
 	return &ServiceContext{
 		Config:      c,
 		AuditLog:    middleware.NewAuditLogMiddleware().Handle,
+		RateLimit:   rateLimitMiddleware,
 		OrderModel:  model.NewOrderModel(cachedConn, hasCache),
 		KafkaPusher: kafkaPusher,
 	}
